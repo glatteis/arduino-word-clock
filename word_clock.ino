@@ -145,9 +145,7 @@ void setup() {
     while (1);
   }
 
-  if (! rtc.isrunning()) {
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
 
 int lastMinute = -1;
