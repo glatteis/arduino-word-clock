@@ -1,3 +1,5 @@
+#define FASTLED_ESP8266_RAW_PIN_ORDER
+
 #include <FastLED.h>
 #include <RTClib.h>
 
@@ -6,7 +8,6 @@
 
 #define NUM_LEDS 114
 #define DATA_PIN 5
-
 
 
 RTC_DS1307 rtc;
@@ -48,7 +49,7 @@ byte EIN [2] = {61, 3};
 const byte HOURS [12][2] = { ZWOELF, EINS, ZWEI, DREI, VIER, FUENF_HR, SECHS, SIEBEN, ACHT, NEUN, ZEHN_HR, ELF };
 
 
-void enable_word(byte b[2]) {
+void enable_word(const byte b[2]) {
   for (int i = b[0]; i < b[0] + b[1]; i++) {
     enableLeds[i] = true;  
   }
@@ -58,8 +59,12 @@ void enable_word(byte b[2]) {
 // Input: t in seconds
 // Output: Coordinates to light up for hours (first byte is length of array)
 void enable_hrs(byte hours, byte minutes) {
+  if (hours > 5 && hours < 10) {  
+    enable_word(GUTEN);
+    enable_word(MORGEN);
+  }
   if (minutes >= 25) hours++;
-  byte* w = HOURS[hours % 12];
+  const byte* w = HOURS[hours % 12];
   if (hours == 1 && minutes / 5 == 0) { // ES IST EIN UHR nicht ES IST EINS UHR
     w = EIN;
   }
@@ -67,8 +72,6 @@ void enable_hrs(byte hours, byte minutes) {
 }
 
 void enable_time(byte hours, byte mins) {
-  enable_word(GUTEN);
-  enable_word(MORGEN);
 
   enable_hrs(hours, mins);
   int fm = (mins / 5);
@@ -109,11 +112,10 @@ void enable_time(byte hours, byte mins) {
 
 }
 
-int brightness = 255;
+int brightness = 150;
 
 void changeHue(long seconds_of_day) {
   int hue = (seconds_of_day / 337) - 128;
-  Serial.println(hue);
   for (int s = 0; s < brightness; s++) {
     for (int i = 0; i < NUM_LEDS; i++) {
       if (enableLeds[i]) {
@@ -125,13 +127,11 @@ void changeHue(long seconds_of_day) {
     FastLED.show();
     delay(5);
   }
-  
-  for (int i = ES[0]; i < ES[0] + ES[1]; i++) {
-    leds[i] = CHSV(hue, 255, brightness);
-  }
-
-  for (int i = IST[0]; i < IST[0] + IST[1]; i++) {
-    leds[i] = CHSV(hue, 255, brightness);
+  for (int i = 0; i < NUM_LEDS; i++) {
+    CRGB led = leds[i];
+    if (led.r != 0 || led.g != 0 || led.b != 0) {
+      leds[i] = CHSV(hue, 255, brightness);
+    }
   }
   
 }
@@ -141,7 +141,13 @@ void changeHue(long seconds_of_day) {
 void setup() {
   Wire.begin();
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  Serial.begin(9600);
+  if (! rtc.begin()) {
+    while (1);
+  }
+
+  if (! rtc.isrunning()) {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
 }
 
 int lastMinute = -1;
@@ -150,10 +156,11 @@ int lastMinute = -1;
 void loop() {
   while (true) {
     DateTime now = rtc.now();
+    
     int mnt = now.minute();
-    Serial.print(now.hour(), DEC);
-    Serial.print(":");
-    Serial.println(now.minute(), DEC);
+    int hr = now.hour();
+    int snd = now.second();
+
     if (mnt != lastMinute) {
       lastMinute = mnt;
 
@@ -166,7 +173,7 @@ void loop() {
       }
 
       
-      enable_time(now.hour(), mnt);
+      enable_time(hr, mnt);
 
       // Set enableLeds and disableLeds to actual 
       for (int i = 0; i < NUM_LEDS; i++) {
@@ -180,7 +187,7 @@ void loop() {
         }
       }
           
-      changeHue(((long) now.hour()) * 60 * 60 + (long) now.minute() * 60 + (long) now.second());
+      changeHue(((long) hr) * 60 * 60 + (long) mnt * 60 + (long) snd);
        
     }
     
