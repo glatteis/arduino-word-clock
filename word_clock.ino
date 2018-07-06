@@ -141,11 +141,7 @@ void changeHue(long seconds_of_day) {
 void setup() {
   Wire.begin();
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  if (! rtc.begin()) {
-    while (1);
-  }
-
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  rtc.begin();
 }
 
 int lastMinute = -1;
